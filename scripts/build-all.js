@@ -14,6 +14,11 @@ function build() {
 
         // 1. Build Customer App
         console.log('📦 Building Customer App...');
+        const vitePath = path.join(clientDir, 'node_modules/.bin/vite');
+        if (!fs.existsSync(vitePath)) {
+            console.log('⚠️ Vite not found in node_modules, attempting to install client deps...');
+            execSync('npm install', { cwd: clientDir, stdio: 'inherit' });
+        }
         execSync('npm run build', { cwd: clientDir, stdio: 'inherit' });
 
         // 2. Build Admin App

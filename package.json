@@ -4,7 +4,7 @@
     "description": "Production ready e-commerce setup",
     "private": true,
     "scripts": {
-        "install-all": "npm install --legacy-peer-deps && cd client && npm install --legacy-peer-deps && cd ../server && npm install --legacy-peer-deps",
+        "install-all": "npm install && npm install --prefix client && npm install --prefix server",
         "client": "cd client && npm run dev",
         "admin": "cd client && npm run dev -- --mode admin",
         "server": "cd server && npm start",
