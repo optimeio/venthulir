@@ -141,6 +141,23 @@
     }
 }
 
+.at-profile-icon-frame {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(201, 168, 76, 0.1);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.at-action-item:hover .at-profile-icon-frame {
+    background: rgba(201, 168, 76, 0.25);
+    border-color: #e8c97a;
+}
+
 .at-action-item {
     display: flex;
     align-items: center;
@@ -161,7 +178,7 @@
 
 .at-label-top {
     font-size: 10px;
-    color: #555;
+    color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
     font-weight: 700;
 }
@@ -172,9 +189,21 @@
     color: #e8c97a;
 }
 
+.at-royal-icon {
+    color: #e8c97a;
+}
+
 .at-icon-btn {
     position: relative;
     color: #e8c97a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.at-icon-btn:hover {
+    transform: scale(1.1);
 }
 
 .at-badge {
@@ -223,7 +252,7 @@
         display: block;
         font-weight: 900;
         font-size: 11px;
-        color: var(--royal-green);
+        color: #e8c97a;
         text-transform: uppercase;
     }
 }

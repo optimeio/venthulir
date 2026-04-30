@@ -41,7 +41,7 @@ app.listen(PORT, () => {
 
     // Keep-alive ping: prevents Render free tier cold starts (pings every 13 mins)
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
-        const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://venthulir.onrender.com';
+        const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://venthulir-1ehl.onrender.com';
         setInterval(async () => {
             try {
                 const https = require('https');

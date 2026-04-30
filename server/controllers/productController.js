@@ -41,8 +41,21 @@ exports.getProducts = async (req, res) => {
 
         const count = await Product.countDocuments(query);
 
+        // Auto-fix image URLs for the current domain
+        const currentDomain = process.env.RENDER_EXTERNAL_URL || 'https://venthulir-1ehl.onrender.com';
+        const fixedProducts = products.map(p => {
+            const product = p.toObject();
+            if (product.imageUrl && product.imageUrl.includes('onrender.com')) {
+                product.imageUrl = product.imageUrl.replace(/https:\/\/[^/]+onrender\.com/, currentDomain);
+            }
+            if (product.images) {
+                product.images = product.images.map(img => img.includes('onrender.com') ? img.replace(/https:\/\/[^/]+onrender\.com/, currentDomain) : img);
+            }
+            return product;
+        });
+
         const responseData = {
-            products,
+            products: fixedProducts,
             totalPages: Math.ceil(count / limit),
             currentPage: page,
             totalItems: count
@@ -61,8 +74,18 @@ exports.getProducts = async (req, res) => {
 
 exports.getProductById = async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id).select(STOCK_FIELDS_EXCLUDE);
-        if (!product) return res.status(404).json({ msg: 'Product not found' });
+        const p = await Product.findById(req.params.id).select(STOCK_FIELDS_EXCLUDE);
+        if (!p) return res.status(404).json({ msg: 'Product not found' });
+        
+        const product = p.toObject();
+        const currentDomain = process.env.RENDER_EXTERNAL_URL || 'https://venthulir-1ehl.onrender.com';
+        if (product.imageUrl && product.imageUrl.includes('onrender.com')) {
+            product.imageUrl = product.imageUrl.replace(/https:\/\/[^/]+onrender\.com/, currentDomain);
+        }
+        if (product.images) {
+            product.images = product.images.map(img => img.includes('onrender.com') ? img.replace(/https:\/\/[^/]+onrender\.com/, currentDomain) : img);
+        }
+        
         res.json(product);
     } catch (err) {
         res.status(500).json({ error: 'Server Error' });

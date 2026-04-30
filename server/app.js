@@ -29,7 +29,28 @@ app.use(helmet({
 }));
 
 
-app.use(cors());
+const allowedOrigins = [
+    'https://venthulir.com',
+    'https://www.venthulir.com',
+    'https://venthulir-1ehl.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:7000'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, Render internal)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(activityLogger); // Log all state-changing actions
