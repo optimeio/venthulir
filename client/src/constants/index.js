@@ -16,4 +16,4 @@ export const BADGES = [
     'New Arrival'
 ];
 
-export const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://venthulir-1ehl.onrender.com/api' : 'http://localhost:7000/api');
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://venthulir-1ehl.onrender.com/api';
