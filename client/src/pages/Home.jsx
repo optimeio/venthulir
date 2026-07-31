@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Hero from '../components/Hero';
 import ShopGrid from '../components/ShopGrid';
 import Footer from '../components/Footer';
@@ -12,52 +12,86 @@ const Home = () => {
     const { appNavigate } = useAppNavigation();
     const [carouselStart, setCarouselStart] = useState(3);
     const [slideDirection, setSlideDirection] = useState(null);
+    const [isHoveredReviews, setIsHoveredReviews] = useState(false);
+    const timerRef = useRef(null);
 
     const reviews = [
         {
             quote: 'Venthulir masalas have changed my cooking. The blend is fragrant, fresh, and gives every dish a perfect, authentic kick.',
             name: 'Maya',
-            subtitle: 'House Wife'
+            subtitle: 'House Wife',
+            rating: 5
         },
         {
             quote: 'The spice mix is so balanced and aromatic. Our guests keep asking for the curry recipe — it tastes rich without being too heavy.',
             name: 'Harshath',
-            subtitle: 'Chef'
+            subtitle: 'Chef',
+            rating: 4
         },
         {
             quote: 'The masala powder feels premium and pure. I can smell the freshness as soon as I open the packet, and my home-cooked meals now taste restaurant-quality.',
             name: 'Aswini',
-            subtitle: 'Home Cook'
+            subtitle: 'Home Cook',
+            rating: 5
         },
         {
             quote: 'The garam masala from Venthilir adds such depth to our family meals. Every dish feels more vibrant and true to South Indian tradition.',
             name: 'Shivanya',
-            subtitle: 'House Wife'
+            subtitle: 'House Wife',
+            rating: 4
         },
         {
             quote: 'I love how the spice blend is warm without being overpowering. It makes simple dals and curries sing with real flavor.',
             name: 'Rosan',
-            subtitle: 'Cooking Enthusiast'
+            subtitle: 'Cooking Enthusiast',
+            rating: 4.5
         }
     ];
 
     const visibleReviews = Array.from({ length: 3 }, (_, index) => reviews[(carouselStart + index) % reviews.length]);
 
-    const step = 1;
+    const startTimer = useCallback(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = setInterval(() => {
+            setSlideDirection('right');
+            setTimeout(() => {
+                setCarouselStart((prev) => (prev + 1) % reviews.length);
+                setSlideDirection(null);
+            }, 400);
+        }, 3000);
+    }, [reviews.length]);
+
     const handlePrev = () => {
+        if (slideDirection) return; // prevent spam
         setSlideDirection('left');
-        setCarouselStart((prev) => (prev - step + reviews.length) % reviews.length);
-    };
-    const handleNext = () => {
-        setSlideDirection('right');
-        setCarouselStart((prev) => (prev + step) % reviews.length);
+        setTimeout(() => {
+            setCarouselStart((prev) => (prev - 1 + reviews.length) % reviews.length);
+            setSlideDirection(null);
+        }, 400);
+        if (!isHoveredReviews) startTimer();
     };
 
+    const handleNext = () => {
+        if (slideDirection) return;
+        setSlideDirection('right');
+        setTimeout(() => {
+            setCarouselStart((prev) => (prev + 1) % reviews.length);
+            setSlideDirection(null);
+        }, 400);
+        if (!isHoveredReviews) startTimer();
+    };
+
+    // Auto-advance reviews every 3 seconds (pauses on hover, resumes on leave)
     useEffect(() => {
-        if (!slideDirection) return;
-        const timer = setTimeout(() => setSlideDirection(null), 280);
-        return () => clearTimeout(timer);
-    }, [slideDirection]);
+        if (!isHoveredReviews) {
+            startTimer();
+        } else {
+            if (timerRef.current) clearInterval(timerRef.current);
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [isHoveredReviews, startTimer]);
 
     // Removed warmup fetch to prevent chaining critical request penalty
 
@@ -383,8 +417,12 @@ const Home = () => {
                 </div>
             </section>
 
-            {/* FAKE REVIEWS SECTION */}
-            <section className="testimonials-section">
+            {/* REVIEWS SECTION WITH AUTOMATIC SLIDESHOW */}
+            <section 
+                className="testimonials-section"
+                onMouseEnter={() => setIsHoveredReviews(true)}
+                onMouseLeave={() => setIsHoveredReviews(false)}
+            >
                 <div className="testimonials-inner">
                     <div className="testimonials-heading-wrap">
                         <h2 style={{ fontSize: 'clamp(28px, 5vw, 36px)', color: '#184824', fontFamily: '"Playfair Display", serif', fontWeight: '900', marginBottom: '12px' }}>What Our Early Adopters Are Saying</h2>
@@ -400,9 +438,22 @@ const Home = () => {
                                 return (
                                     <div key={`${review.name}-${review.quote}`} className={`testimonial-card${isActive ? ' active' : ''}`}>
                                         <div className="testimonial-card-content">
-                                            <div className="testimonial-card-stars">
-                                                {Array.from({ length: 5 }).map((_, index) => (
-                                                    <span key={index} style={{ color: '#d4af37', fontSize: '18px' }}>★</span>
+                                            {/* Pure Star Rating Icons: Aswini 5, Shivanya 4, Harshath 4, Rosan 4.5, Maya 5 */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '14px' }}>
+                                                {/* Full Gold Stars */}
+                                                {Array.from({ length: Math.floor(review.rating) }).map((_, starIdx) => (
+                                                    <span key={`full-${starIdx}`} style={{ color: '#d4af37', fontSize: '20px', lineHeight: 1 }}>★</span>
+                                                ))}
+                                                {/* Half Star for 4.5 */}
+                                                {review.rating % 1 !== 0 && (
+                                                    <span key="half" style={{ position: 'relative', display: 'inline-block', fontSize: '20px', lineHeight: 1, color: '#cbd5e1' }}>
+                                                        ☆
+                                                        <span style={{ position: 'absolute', top: 0, left: 0, width: '55%', overflow: 'hidden', color: '#d4af37' }}>★</span>
+                                                    </span>
+                                                )}
+                                                {/* Empty Outline Stars */}
+                                                {Array.from({ length: 5 - Math.floor(review.rating) - (review.rating % 1 !== 0 ? 1 : 0) }).map((_, emptyIdx) => (
+                                                    <span key={`empty-${emptyIdx}`} style={{ color: '#cbd5e1', fontSize: '20px', lineHeight: 1 }}>☆</span>
                                                 ))}
                                             </div>
                                             <p className="testimonial-quote">

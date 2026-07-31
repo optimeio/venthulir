@@ -179,8 +179,8 @@ const Footer = () => {
                     <div className="rotating-brand">
                         <svg viewBox="0 0 100 100">
                             <path id="circlePath" d="M 50, 50 m -40, 0 a 40,40 0 1,1 80,0 a 40,40 0 1,1 -80,0" fill="transparent" />
-                            <text fontSize="14" fontWeight="900" fill="#0a2e1f" letterSpacing="2">
-                                <textPath xlinkHref="#circlePath">VENTHULIR • VENTHULIR • VENTHULIR • </textPath>
+                            <text fontSize="13" fontWeight="900" fill="#0a2e1f" letterSpacing="1.5">
+                                <textPath xlinkHref="#circlePath">VENTHULIR ORGANIC HARVEST • VENTHULIR ORGANIC HARVEST • </textPath>
                             </text>
                         </svg>
                     </div>

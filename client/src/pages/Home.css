@@ -242,7 +242,7 @@
     justify-content: center;
     align-items: flex-start;
     gap: 28px;
-    transition: transform 0.32s ease;
+    transition: transform 0.6s ease-in-out;
     min-height: 360px;
 }
 
@@ -351,15 +351,22 @@
 
 @media (max-width: 768px) {
     .testimonials-carousel-row {
-        flex-wrap: wrap;
-        justify-content: center;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        align-items: center;
+        width: 100%;
     }
 
     .testimonial-card {
-        width: min(100%, 100%);
-        flex: 0 0 100%;
-        max-width: 420px;
-        min-width: 0;
+        width: min(100%, 320px);
+        flex: 0 0 min(100%, 320px);
+        margin: 0;
+        display: none; /* Hide by default on mobile */
+    }
+
+    /* Only show the active card on mobile */
+    .testimonial-card.active {
+        display: flex;
         margin: 0 auto;
     }
 
