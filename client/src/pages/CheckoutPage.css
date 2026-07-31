@@ -273,39 +273,116 @@
 }
 
 .payment-card {
-    padding: 20px;
+    padding: 18px 20px;
     border: 1.5px solid #e2e8f0;
     border-radius: 15px;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 14px;
     cursor: pointer;
     transition: 0.2s;
 }
 
 .payment-card:hover {
     border-color: #0b3d2e;
+    background: #f8fafc;
 }
 
 .payment-card.selected {
     border-color: #0b3d2e;
     background: #f0fdf4;
-    box-shadow: 0 4px 12px rgba(11, 61, 46, 0.05);
+    box-shadow: 0 4px 12px rgba(11, 61, 46, 0.08);
 }
 
-.payment-card span {
+.payment-card.razorpay-selected {
+    border-color: #3395ff;
+    background: #eff6ff;
+    box-shadow: 0 4px 12px rgba(51, 149, 255, 0.12);
+}
+
+.payment-card.razorpay-selected:hover {
+    border-color: #3395ff;
+}
+
+.payment-radio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.radio-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    transition: 0.2s;
+    position: relative;
+}
+
+.radio-dot.active {
+    border-color: #0b3d2e;
+    background: #0b3d2e;
+    box-shadow: 0 0 0 3px rgba(11, 61, 46, 0.15);
+}
+
+.radio-dot.active::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.payment-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.payment-card-title {
     font-weight: 700;
     font-size: 15px;
+    color: #0f172a;
 }
 
-.upi-logo {
-    background: #5f259f;
-    color: #fff;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 900;
+.payment-card-desc {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
 }
+
+.razorpay-badge {
+    background: #3395ff;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Razorpay confirm button */
+.primary-checkout-btn.razorpay-btn {
+    background: linear-gradient(135deg, #3395ff 0%, #2563eb 100%);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(51, 149, 255, 0.25);
+}
+
+.primary-checkout-btn.razorpay-btn:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(51, 149, 255, 0.35);
+}
+
+
 
 .secondary-checkout-btn {
     background: none;

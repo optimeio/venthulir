@@ -12,11 +12,18 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://www.googletagmanager.com"],
+            scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "https://www.googletagmanager.com",
+                "https://*.google-analytics.com",
+                "https://checkout.razorpay.com", // Razorpay checkout script
+            ],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             imgSrc: ["'self'", "data:", "https:", "http:"], // Allow images from any secure source
-            connectSrc: ["'self'", "https:", "http:"],
+            connectSrc: ["'self'", "https:", "http:", "https://*.razorpay.com"], // Razorpay API calls
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            frameSrc: ["'self'", "https://*.razorpay.com"], // Razorpay payment iframe
             objectSrc: ["'none'"],
             upgradeInsecureRequests: [],
         }
@@ -25,7 +32,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-    frameguard: { action: 'deny' }
+    frameguard: false, // Disabled: Razorpay modal uses an iframe that needs to embed
 }));
 
 
@@ -66,6 +73,8 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/coupons', require('./routes/couponRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/offers', require('./routes/offerRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes'));
+
 
 // API Diagnostic Routes
 // 6. SERVE FRONTEND (Production)

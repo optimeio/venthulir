@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useAppNavigation } from '../context/NavigationContext';
-import { ShieldCheck, Truck, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Truck, ChevronRight, ArrowLeft, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../services/api';
 import './CheckoutPage.css';
+
+// Dynamically load the Razorpay checkout script (only once)
+const loadRazorpayScript = () =>
+    new Promise((resolve) => {
+        if (document.getElementById('razorpay-script')) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement('script');
+        script.id = 'razorpay-script';
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
 
 const CheckoutPage = ({ viewParams = {} }) => {
     const { appNavigate } = useAppNavigation();
@@ -33,6 +48,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
     const [isVerifyingCoupon, setIsVerifyingCoupon] = useState(false);
     const [availableCoupons, setAvailableCoupons] = useState([]);
     const [placedOrderId, setPlacedOrderId] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' | 'razorpay'
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -121,7 +137,8 @@ const CheckoutPage = ({ viewParams = {} }) => {
     const discountAmount = appliedCoupon ? Math.round((subtotal * appliedCoupon.discountPercentage) / 100) : 0;
     const total = subtotal - discountAmount + shipping;
 
-    const handlePlaceOrder = async () => {
+    // ── COD FLOW (unchanged) ─────────────────────────────────────────────────
+    const handlePlaceCODOrder = async () => {
         setIsProcessing(true);
         setOrderError('');
         try {
@@ -153,6 +170,109 @@ const CheckoutPage = ({ viewParams = {} }) => {
         }
     };
 
+    // ── RAZORPAY FLOW ────────────────────────────────────────────────────────
+    const handleRazorpayPayment = async () => {
+        setIsProcessing(true);
+        setOrderError('');
+
+        try {
+            // 1. Load Razorpay script
+            const scriptLoaded = await loadRazorpayScript();
+            if (!scriptLoaded) {
+                setOrderError('Failed to load payment gateway. Please check your connection.');
+                setIsProcessing(false);
+                return;
+            }
+
+            // 2. Create Razorpay order on backend
+            const rzpOrderData = await api.post('/payment/create-order', { amount: total });
+
+            // 3. Configure and open the Razorpay modal
+            const options = {
+                key: rzpOrderData.key,
+                amount: rzpOrderData.amount,
+                currency: rzpOrderData.currency,
+                name: 'Venthulir Royal Reserves',
+                description: 'Secure Payment',
+                image: 'https://i.ibb.co/rGZwVGYP/organic.png',
+                order_id: rzpOrderData.id,
+                prefill: {
+                    name: shippingData.fullName,
+                    email: user.email,
+                    contact: shippingData.phone,
+                },
+                notes: {
+                    address: `${shippingData.address}, ${shippingData.city}`,
+                },
+                theme: {
+                    color: '#0b3d2e',
+                },
+                modal: {
+                    ondismiss: () => {
+                        setIsProcessing(false);
+                        setOrderError('Payment cancelled. You can try again.');
+                    },
+                },
+                handler: async (response) => {
+                    // 4. Payment successful in modal — verify server-side
+                    try {
+                        const verifyPayload = {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            // Order details
+                            customerName: shippingData.fullName,
+                            customerEmail: user.email,
+                            phone: shippingData.phone,
+                            deliveryAddress: {
+                                address: shippingData.address, city: shippingData.city,
+                                state: shippingData.state, zipCode: shippingData.zipCode
+                            },
+                            items: getOrderItems(),
+                            originalAmount: subtotal,
+                            shippingCharge: shipping,
+                            discountAmount,
+                            couponUsed: appliedCoupon?.code || null,
+                            totalAmount: total,
+                            couponCode: appliedCoupon?.code || null,
+                        };
+
+                        const res = await api.post('/payment/verify', verifyPayload);
+                        setPlacedOrderId(res.order?._id || null);
+                        if (isCartMode) clearCart();
+                        setStep(3);
+                    } catch (verifyErr) {
+                        const msg = verifyErr?.message || 'Payment verification failed. Contact support.';
+                        setOrderError(msg);
+                    } finally {
+                        setIsProcessing(false);
+                    }
+                },
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', (response) => {
+                setOrderError(`Payment failed: ${response.error.description || 'Unknown error'}. Please try again.`);
+                setIsProcessing(false);
+            });
+            rzp.open();
+
+        } catch (err) {
+            const msg = err?.message || 'Could not initiate payment. Please try again.';
+            setOrderError(msg);
+            setIsProcessing(false);
+        }
+    };
+
+    // ── DISPATCH based on selected payment method ─────────────────────────────
+    const handlePlaceOrder = () => {
+        if (paymentMethod === 'razorpay') {
+            handleRazorpayPayment();
+        } else {
+            handlePlaceCODOrder();
+        }
+    };
+
     const handleApplyCoupon = async () => {
         if (!couponInput.trim()) return;
         setIsVerifyingCoupon(true);
@@ -175,6 +295,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
     if (!isCartMode && !product) return <div className="checkout-loading">Preparing your harvest...</div>;
     if (isCartMode && cart.length === 0 && step !== 3) return <div className="checkout-loading">Your cart is empty...</div>;
 
+    // ── SUCCESS SCREEN ───────────────────────────────────────────────────────
     if (step === 3) {
         return (
             <div className="order-success-container">
@@ -188,7 +309,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
                         {placedOrderId && <p style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#0b3d2e' }}>Order ID: #{placedOrderId}</p>}
                         <p>📧 A confirmation email has been sent to <strong>{user?.email}</strong></p>
                         <p>🚚 Estimated Delivery: 3–5 Business Days</p>
-                        <p>💰 Payment: Cash on Delivery</p>
+                        <p>💰 Payment: {paymentMethod === 'razorpay' ? 'Paid Online (Razorpay)' : 'Cash on Delivery'}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '20px' }}>
                         <button className="primary-checkout-btn" onClick={() => appNavigate('profile')}>View My Orders</button>
@@ -243,21 +364,60 @@ const CheckoutPage = ({ viewParams = {} }) => {
                             <div className="payment-section animate-fade-in">
                                 <h2>Payment Method</h2>
                                 <div className="payment-options">
-                                    <div className="payment-card selected" style={{ cursor: 'default' }}>
+                                    {/* COD Option */}
+                                    <div
+                                        className={`payment-card ${paymentMethod === 'cod' ? 'selected' : ''}`}
+                                        onClick={() => setPaymentMethod('cod')}
+                                    >
+                                        <div className="payment-radio">
+                                            <div className={`radio-dot ${paymentMethod === 'cod' ? 'active' : ''}`} />
+                                        </div>
                                         <Truck size={24} />
-                                        <span>Cash on Delivery</span>
+                                        <div className="payment-card-info">
+                                            <span className="payment-card-title">Cash on Delivery</span>
+                                            <span className="payment-card-desc">Pay with cash upon delivery. No advance required.</span>
+                                        </div>
                                     </div>
-                                    <p style={{ fontSize: '13px', color: '#64748b', marginTop: '10px' }}>Pay with cash upon delivery. No advance payment required.</p>
+
+                                    {/* Razorpay Option */}
+                                    <div
+                                        className={`payment-card ${paymentMethod === 'razorpay' ? 'selected razorpay-selected' : ''}`}
+                                        onClick={() => setPaymentMethod('razorpay')}
+                                    >
+                                        <div className="payment-radio">
+                                            <div className={`radio-dot ${paymentMethod === 'razorpay' ? 'active' : ''}`} />
+                                        </div>
+                                        <CreditCard size={24} />
+                                        <div className="payment-card-info">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span className="payment-card-title">Pay Online</span>
+                                                <span className="razorpay-badge">Razorpay</span>
+                                            </div>
+                                            <span className="payment-card-desc">UPI · Cards · NetBanking · Wallets — 100% Secure</span>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 {orderError && (
                                     <div className="animate-fade-in" style={{ color: '#B12704', background: '#fcf4f4', padding: '16px 20px', borderRadius: '12px', border: '1px solid #f5c6c6', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <span style={{ fontSize: '18px' }}>⚠️</span> {orderError}
                                     </div>
                                 )}
+
                                 <div className="order-actions">
                                     <button className="secondary-checkout-btn" onClick={() => setStep(1)}>Back to Shipping</button>
-                                    <button className="primary-checkout-btn" onClick={handlePlaceOrder} disabled={isProcessing} style={{ marginTop: 0 }}>
-                                        {isProcessing ? 'Placing Order...' : `Confirm Order — ₹${total.toLocaleString()}`}
+                                    <button
+                                        className={`primary-checkout-btn ${paymentMethod === 'razorpay' ? 'razorpay-btn' : ''}`}
+                                        onClick={handlePlaceOrder}
+                                        disabled={isProcessing}
+                                        style={{ marginTop: 0 }}
+                                    >
+                                        {isProcessing
+                                            ? (paymentMethod === 'razorpay' ? 'Opening Payment...' : 'Placing Order...')
+                                            : paymentMethod === 'razorpay'
+                                                ? `Pay ₹${total.toLocaleString()} Now`
+                                                : `Confirm Order — ₹${total.toLocaleString()}`
+                                        }
                                     </button>
                                 </div>
                             </div>

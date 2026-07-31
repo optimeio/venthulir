@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Hero from '../components/Hero';
 import ShopGrid from '../components/ShopGrid';
 import Footer from '../components/Footer';
@@ -10,6 +10,54 @@ import './Home.css';
 
 const Home = () => {
     const { appNavigate } = useAppNavigation();
+    const [carouselStart, setCarouselStart] = useState(3);
+    const [slideDirection, setSlideDirection] = useState(null);
+
+    const reviews = [
+        {
+            quote: 'Venthulir masalas have changed my cooking. The blend is fragrant, fresh, and gives every dish a perfect, authentic kick.',
+            name: 'Maya',
+            subtitle: 'House Wife'
+        },
+        {
+            quote: 'The spice mix is so balanced and aromatic. Our guests keep asking for the curry recipe — it tastes rich without being too heavy.',
+            name: 'Harshath',
+            subtitle: 'Chef'
+        },
+        {
+            quote: 'The masala powder feels premium and pure. I can smell the freshness as soon as I open the packet, and my home-cooked meals now taste restaurant-quality.',
+            name: 'Aswini',
+            subtitle: 'Home Cook'
+        },
+        {
+            quote: 'The garam masala from Venthilir adds such depth to our family meals. Every dish feels more vibrant and true to South Indian tradition.',
+            name: 'Shivanya',
+            subtitle: 'House Wife'
+        },
+        {
+            quote: 'I love how the spice blend is warm without being overpowering. It makes simple dals and curries sing with real flavor.',
+            name: 'Rosan',
+            subtitle: 'Cooking Enthusiast'
+        }
+    ];
+
+    const visibleReviews = Array.from({ length: 3 }, (_, index) => reviews[(carouselStart + index) % reviews.length]);
+
+    const step = 1;
+    const handlePrev = () => {
+        setSlideDirection('left');
+        setCarouselStart((prev) => (prev - step + reviews.length) % reviews.length);
+    };
+    const handleNext = () => {
+        setSlideDirection('right');
+        setCarouselStart((prev) => (prev + step) % reviews.length);
+    };
+
+    useEffect(() => {
+        if (!slideDirection) return;
+        const timer = setTimeout(() => setSlideDirection(null), 280);
+        return () => clearTimeout(timer);
+    }, [slideDirection]);
 
     // Removed warmup fetch to prevent chaining critical request penalty
 
@@ -331,6 +379,61 @@ const Home = () => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* FAKE REVIEWS SECTION */}
+            <section className="testimonials-section">
+                <div className="testimonials-inner">
+                    <div className="testimonials-heading-wrap">
+                        <h2 style={{ fontSize: 'clamp(28px, 5vw, 36px)', color: '#184824', fontFamily: '"Playfair Display", serif', fontWeight: '900', marginBottom: '12px' }}>What Our Early Adopters Are Saying</h2>
+                        <p style={{ maxWidth: '760px', margin: '0 auto', color: '#4e6b55', fontSize: '16px', lineHeight: '1.8' }}>
+                            Real feedback from customers who experienced Venthulir's purity, flavor, and wellness boost first-hand.
+                        </p>
+                    </div>
+
+                    <div className="testimonials-carousel-frame">
+                        <div className="testimonials-carousel-row" style={{ transform: slideDirection === 'left' ? 'translateX(24px)' : slideDirection === 'right' ? 'translateX(-24px)' : 'translateX(0)' }}>
+                            {visibleReviews.map((review, index) => {
+                                const isActive = index === 1;
+                                return (
+                                    <div key={`${review.name}-${review.quote}`} className={`testimonial-card${isActive ? ' active' : ''}`}>
+                                        <div className="testimonial-card-content">
+                                            <div className="testimonial-card-stars">
+                                                {Array.from({ length: 5 }).map((_, index) => (
+                                                    <span key={index} style={{ color: '#d4af37', fontSize: '18px' }}>★</span>
+                                                ))}
+                                            </div>
+                                            <p className="testimonial-quote">
+                                                “{review.quote}”
+                                            </p>
+                                        </div>
+                                        <div className="testimonial-card-meta">
+                                            <div className="testimonial-name" style={{ color: isActive ? '#154427' : '#1d4228' }}>{review.name}</div>
+                                            <div className="testimonial-role">{review.subtitle}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="testimonial-nav">
+                        <button
+                            onClick={handlePrev}
+                            className="testimonial-nav-button"
+                            aria-label="Previous reviews"
+                        >
+                            ‹
+                        </button>
+                        <button
+                            onClick={handleNext}
+                            className="testimonial-nav-button"
+                            aria-label="Next reviews"
+                        >
+                            ›
+                        </button>
                     </div>
                 </div>
             </section>

@@ -12,6 +12,9 @@ const OrderSchema = new mongoose.Schema({
     couponUsed: { type: String, default: null },
     totalAmount: { type: Number, required: true },
     paymentMethod: { type: String, default: 'Cash on Delivery' },
+    // Razorpay-specific fields (null for COD orders)
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
     status: { type: String, default: 'Pending' },
     statusUpdatedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
