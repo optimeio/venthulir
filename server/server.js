@@ -36,6 +36,24 @@ const seedAdmin = async () => {
 
 seedAdmin();
 
+const backfillSlugs = async () => {
+    try {
+        const Product = require('./models/Product');
+        const products = await Product.find({ $or: [{ slug: { $exists: false } }, { slug: "" }, { slug: null }] });
+        if (products.length > 0) {
+            for (let product of products) {
+                // Pre-save hook generates the slug automatically
+                await product.save();
+            }
+            console.log(`✅ Backfilled slugs for ${products.length} existing products.`);
+        }
+    } catch (err) {
+        console.error('Slug Backfill Error:', err);
+    }
+};
+
+backfillSlugs();
+
 app.listen(PORT, () => {
     console.log(`🚀 Production Ready Server spinning at http://localhost:${PORT}`);
 

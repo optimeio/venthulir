@@ -73,12 +73,25 @@ exports.applyCheckout = async (req, res) => {
         }
         // ────────────────────────────────────────────────────────────────────
 
+        // Enrich items with hsnSac from Product database
+        const enrichedItems = await Promise.all(items.map(async (item) => {
+            try {
+                const prod = await Product.findById(item.product);
+                return {
+                    ...item,
+                    hsnSac: prod ? (prod.hsnSac || "") : (item.hsnSac || "")
+                };
+            } catch (e) {
+                return item;
+            }
+        }));
+
         const newOrder = new Order({
             customerName,
             customerEmail,
             phone,
             deliveryAddress,
-            items,
+            items: enrichedItems,
             originalAmount: originalAmount || totalAmount,
             shippingCharge: shippingCharge || 0,
             discountAmount: discountAmount || 0,

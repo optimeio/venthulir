@@ -87,7 +87,7 @@ const WishlistPage = () => {
                                     <span className="item-category">{item.category}</span>
                                     <h3
                                         className="item-name"
-                                        onClick={() => appNavigate('product', { id: item._id || item.id })}
+                                        onClick={() => appNavigate('product', { id: item.slug || item._id || item.id })}
                                         style={{ cursor: 'pointer' }}
                                     >
                                         {item.name}

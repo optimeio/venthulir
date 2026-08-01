@@ -227,3 +227,17 @@
     background: #d4af37;
     color: #0b2e1f;
 }
+
+/* Dashboard Embedded Full-Width Overrides */
+.cp-dashboard-content .wishlist-page-root {
+    min-height: auto;
+    background: transparent;
+    padding: 0;
+    width: 100%;
+}
+
+.cp-dashboard-content .wishlist-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+}

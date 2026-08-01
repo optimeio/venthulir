@@ -417,6 +417,20 @@
     color: #fff;
 }
 
+/* Dashboard Embedded Full-Width Overrides */
+.cp-dashboard-content .cart-page-root {
+    min-height: auto;
+    background: transparent;
+    padding: 0;
+    width: 100%;
+}
+
+.cp-dashboard-content .cart-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+}
+
 /* Hidden decorative elements for cleaner layout */
 .cart-bg-leaves {
     display: none;

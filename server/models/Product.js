@@ -9,6 +9,8 @@ const ProductSchema = new mongoose.Schema({
     name: { type: String, required: true },
     price: { type: Number, required: true },
     description: { type: String, required: true },
+    hsnSac: { type: String, default: "" },
+    slug: { type: String, unique: true },
     imageUrl: { type: String },
     images: { type: [String], default: [] },
     category: { type: String, default: "General" },
@@ -38,6 +40,15 @@ ProductSchema.pre('save', async function (next) {
     if (!this.productCode) {
         const randomPart = Math.floor(100000 + Math.random() * 900000); // 6-digit number
         this.productCode = `VNT-${randomPart}`;
+    }
+
+    if (this.isModified('name') || !this.slug) {
+        let baseSlug = this.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        const suffix = this.productCode.replace('VNT-', '').toLowerCase();
+        this.slug = `${baseSlug}-${suffix}`;
     }
     next();
 });

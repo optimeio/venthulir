@@ -8,7 +8,7 @@ const EntryAuthPage = ({ onLoginSuccess, redirectView, redirectParams }) => {
     const { isAuthenticated, login, register, requestRegisterOTP, verifyRegisterOTP, verifyResetOTP, forgotPassword, resetPassword } = useAuth();
     const { appNavigate } = useAppNavigation();
 
-    const [view, setView] = useState(redirectView ? 'login' : 'landing');
+    const [view, setView] = useState('login');
     const [sunActive, setSunActive] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', otp: '' });
@@ -474,4 +474,4 @@ const EntryAuthPage = ({ onLoginSuccess, redirectView, redirectParams }) => {
     );
 };
 
-export default EntryAuthPage;
+export default EntryAuthPage;

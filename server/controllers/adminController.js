@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Order = require('../models/Order');
 const Message = require('../models/Message');
 const ActivityLog = require('../models/ActivityLog');
+const { clearProductsCache } = require('./productController');
 // Shared transporter used instead
 
 
@@ -71,7 +72,18 @@ exports.deleteOrder = async (req, res) => {
 exports.getAdminProducts = async (req, res) => {
     try {
         const products = await Product.find().sort({ createdAt: -1 });
-        res.json(products);
+        const currentDomain = `${req.protocol}://${req.get('host')}`;
+        const fixedProducts = products.map(p => {
+            const product = p.toObject();
+            if (product.imageUrl && typeof product.imageUrl === 'string' && (product.imageUrl.includes('onrender.com') || product.imageUrl.includes('localhost:7000'))) {
+                product.imageUrl = product.imageUrl.replace(/https?:\/\/[^/]+/, currentDomain);
+            }
+            if (product.images) {
+                product.images = product.images.map(img => (img && typeof img === 'string' && (img.includes('onrender.com') || img.includes('localhost:7000'))) ? img.replace(/https?:\/\/[^/]+/, currentDomain) : img);
+            }
+            return product;
+        });
+        res.json(fixedProducts);
     } catch (err) {
         res.status(500).json({ error: 'Server Error' });
     }
@@ -79,7 +91,7 @@ exports.getAdminProducts = async (req, res) => {
 
 exports.addProduct = async (req, res) => {
     try {
-        const { productCode, name, price, description, imageUrl, images, category, badge, shippingCharge, variants, initialStock, originalPrice, discountPercent } = req.body;
+        const { productCode, name, price, description, imageUrl, images, category, badge, shippingCharge, variants, initialStock, originalPrice, discountPercent, hsnSac } = req.body;
         const stock = parseInt(initialStock) || 0;
         const newProduct = new Product({
             productCode,
@@ -92,9 +104,11 @@ exports.addProduct = async (req, res) => {
             discountPercent: parseFloat(discountPercent) || undefined,
             variants: variants || [],
             initialStock: stock,
-            currentStock: stock  // currentStock starts equal to initialStock
+            currentStock: stock,  // currentStock starts equal to initialStock
+            hsnSac: hsnSac || ""
         });
         await newProduct.save();
+        clearProductsCache();
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(500).json({ error: 'Server Error' });
@@ -108,6 +122,9 @@ exports.updateProduct = async (req, res) => {
 
         // Update fields
         Object.assign(product, req.body);
+        if (req.body.hsnSac !== undefined) {
+            product.hsnSac = req.body.hsnSac;
+        }
         product.updatedAt = new Date();
 
         // If initialStock is being changed, sync currentStock too
@@ -116,6 +133,7 @@ exports.updateProduct = async (req, res) => {
         }
 
         await product.save();
+        clearProductsCache();
         res.json(product);
     } catch (err) {
         console.error('Update Product Error:', err);
@@ -126,6 +144,7 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
     try {
         await Product.findByIdAndDelete(req.params.id);
+        clearProductsCache();
         res.json({ msg: 'Product deleted' });
     } catch (err) {
         res.status(500).json({ error: 'Server Error' });

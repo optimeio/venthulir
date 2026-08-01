@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, User, ChevronDown, Menu, X as CloseIcon } from 'lucide-react';
 import { useAppNavigation } from '../context/NavigationContext';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ const Navbar = () => {
   const { getTotalItems } = useCart();
   const { wishlist } = useWishlist();
   const { currentView, appNavigate } = useAppNavigation();
+  const navigate = useNavigate();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -60,8 +62,8 @@ const Navbar = () => {
           </div>
 
           <div className="at-nav-actions">
-            <div className="at-action-item profile-trigger" role="button" tabIndex="0" aria-label="Profile" onKeyDown={(e) => { if(e.key==='Enter') { if(!isAuthenticated) setIsAuthOpen(true); else appNavigate('profile'); } }} onClick={() => {
-              if (!isAuthenticated) return setIsAuthOpen(true);
+            <div className="at-action-item profile-trigger" role="button" tabIndex="0" aria-label="Profile" onKeyDown={(e) => { if (e.key === 'Enter') { if (!isAuthenticated) return navigate('/auth'); appNavigate('profile'); } }} onClick={() => {
+              if (!isAuthenticated) return navigate('/auth');
               appNavigate('profile');
             }}>
               <div className="at-profile-icon-frame">

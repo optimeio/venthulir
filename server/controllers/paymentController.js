@@ -2,6 +2,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const Coupon = require('../models/Coupon');
+const Product = require('../models/Product');
 const { reduceStock } = require('./inventoryController');
 const transporter = require('../utils/email');
 
@@ -112,12 +113,25 @@ exports.verifyAndPlaceOrder = async (req, res) => {
         }
 
         // 4. Save order to database
+        // Enrich items with hsnSac from Product database
+        const enrichedItems = await Promise.all(items.map(async (item) => {
+            try {
+                const prod = await Product.findById(item.product);
+                return {
+                    ...item,
+                    hsnSac: prod ? (prod.hsnSac || "") : (item.hsnSac || "")
+                };
+            } catch (e) {
+                return item;
+            }
+        }));
+
         const newOrder = new Order({
             customerName,
             customerEmail,
             phone,
             deliveryAddress,
-            items,
+            items: enrichedItems,
             originalAmount: originalAmount || totalAmount,
             shippingCharge: shippingCharge || 0,
             discountAmount: discountAmount || 0,

@@ -3,10 +3,11 @@ import {
     LayoutDashboard, Package, Users, ShoppingCart,
     Plus, ShieldQuestion, Send,
     LogOut, Trash2, Edit2, Activity,
-    Loader2, ChevronRight, Search, Download, Trash, Tag
+    Loader2, ChevronRight, Search, Download, Trash, Tag, FileText
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import AdminLayout from '../layouts/AdminLayout';
+import InvoiceModal from '../components/InvoiceModal';
 import { api } from '../services/api';
 import { API_BASE } from '../constants';
 
@@ -18,11 +19,12 @@ function AdminPage({ onLogout }) {
     const [messages, setMessages] = useState([]);
     const [activityLogs, setActivityLogs] = useState([]);
     const [stats, setStats] = useState({ productCount: 0, userCount: 0, orderCount: 0, messageCount: 0, lowStockCount: 0, outOfStockCount: 0 });
+    const [productSearchTerm, setProductSearchTerm] = useState('');
     const [coupons, setCoupons] = useState([]);
     const [inventory, setInventory] = useState({ totalProducts: 0, totalStock: 0, lowStockProducts: [], outOfStockProducts: [], allProducts: [] });
     const [restockInputs, setRestockInputs] = useState({});
     const [offerRestockInputs, setOfferRestockInputs] = useState({});
-    const [prodForm, setProdForm] = useState({ productCode: '', name: '', price: '', description: '', category: 'General', badge: '', shippingCharge: 0, initialStock: '', originalPrice: '', discountPercent: '' });
+    const [prodForm, setProdForm] = useState({ productCode: '', name: '', price: '', description: '', category: 'General', badge: '', shippingCharge: 0, initialStock: '', originalPrice: '', discountPercent: '', hsnSac: '' });
     const [couponForm, setCouponForm] = useState({ couponCode: '', productId: '', maxUses: 25, expiryDate: '', discountPercentage: 10, status: 'Active' });
     const [isEditingCoupon, setIsEditingCoupon] = useState(false);
     const [editingCouponId, setEditingCouponId] = useState(null);
@@ -39,6 +41,7 @@ function AdminPage({ onLogout }) {
     const [editingId, setEditingId] = useState(null);
     const [replyTexts, setReplyTexts] = useState({});
     const [isResolving, setIsResolving] = useState({});
+    const [selectedOrderInvoice, setSelectedOrderInvoice] = useState(null);
 
     // ── Offers State ────────────────────────────────────
     const [offers, setOffers] = useState([]);
@@ -256,13 +259,7 @@ function AdminPage({ onLogout }) {
                 if (uploadRes.ok) {
                     const data = await uploadRes.json();
                     // Ensure image URLs use the production API base if they come back with localhost
-                    uploadedUrls = data.imageUrls.map(url => {
-                        if (url.includes('localhost:7000')) {
-                            const productionBase = API_BASE.replace('/api', '');
-                            return url.replace('http://localhost:7000', productionBase);
-                        }
-                        return url;
-                    });
+                    uploadedUrls = data.imageUrls;
                 } else {
                     const errorMsg = await uploadRes.text();
                     console.error("Upload error response:", errorMsg);
@@ -308,7 +305,7 @@ function AdminPage({ onLogout }) {
     };
 
     const resetForm = () => {
-        setProdForm({ productCode: '', name: '', price: '', description: '', category: 'General', badge: '', shippingCharge: 0, initialStock: '', originalPrice: '', discountPercent: '' });
+        setProdForm({ productCode: '', name: '', price: '', description: '', category: 'General', badge: '', shippingCharge: 0, initialStock: '', originalPrice: '', discountPercent: '', hsnSac: '' });
         setVariants([]);
         setComboContents([]);
         setComboInput({ item: '', weight: '' });
@@ -329,7 +326,8 @@ function AdminPage({ onLogout }) {
             shippingCharge: p.shippingCharge || 0,
             initialStock: p.initialStock || 0,
             originalPrice: p.originalPrice || '',
-            discountPercent: p.discountPercent || ''
+            discountPercent: p.discountPercent || '',
+            hsnSac: p.hsnSac || ''
         });
         setVariants(p.variants || []);
         setComboContents(p.comboContents || []);
@@ -464,7 +462,7 @@ function AdminPage({ onLogout }) {
                 });
                 if (uploadRes.ok) {
                     const data = await uploadRes.json();
-                    uploadedUrls = data.imageUrls.map(url => url.includes('localhost:7000') ? url.replace('http://localhost:7000', API_BASE.replace('/api', '')) : url);
+                    uploadedUrls = data.imageUrls;
                 } else {
                     throw new Error('Image upload failed.');
                 }
@@ -664,6 +662,10 @@ function AdminPage({ onLogout }) {
                                     <div>
                                         <label className="admin-label">Name</label>
                                         <input type="text" required className="admin-input" value={prodForm.name} onChange={e => setProdForm({ ...prodForm, name: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="admin-label">HSN/SAC</label>
+                                        <input type="text" className="admin-input" placeholder="Optional" value={prodForm.hsnSac || ''} onChange={e => setProdForm({ ...prodForm, hsnSac: e.target.value })} />
                                     </div>
                                     <div>
                                         <label className="admin-label">Category</label>
@@ -1157,9 +1159,20 @@ function AdminPage({ onLogout }) {
                                                 </select>
                                             </td>
                                             <td>
-                                                <button onClick={() => handleDeleteOrder(o._id)} className="admin-btn admin-btn-danger" style={{ padding: '8px' }} aria-label="Delete order">
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button 
+                                                        onClick={() => setSelectedOrderInvoice(o)} 
+                                                        className="admin-btn" 
+                                                        style={{ padding: '8px', background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0f172a' }} 
+                                                        title="View Invoice"
+                                                        aria-label="View Invoice"
+                                                    >
+                                                        <FileText size={16} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteOrder(o._id)} className="admin-btn admin-btn-danger" style={{ padding: '8px' }} aria-label="Delete order">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1323,21 +1336,44 @@ function AdminPage({ onLogout }) {
                         </div>
                     </div>
                 );
-            case 'All Products':
+            case 'All Products': {
+                const filteredProducts = products.filter(p => {
+                    const term = productSearchTerm.toLowerCase();
+                    return (
+                        (p.name && p.name.toLowerCase().includes(term)) ||
+                        (p.productCode && p.productCode.toLowerCase().includes(term)) ||
+                        (p.hsnSac && p.hsnSac.toLowerCase().includes(term))
+                    );
+                });
                 return (
                     <div className="admin-card fade-in">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '15px', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0 }}>Product Inventory ({filteredProducts.length})</h3>
+                            <div style={{ position: 'relative', width: '300px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, SKU, or HSN/SAC..."
+                                    value={productSearchTerm}
+                                    onChange={e => setProductSearchTerm(e.target.value)}
+                                    className="admin-input"
+                                    style={{ paddingLeft: '35px', margin: 0, width: '100%' }}
+                                />
+                                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            </div>
+                        </div>
                         <div style={{ overflowX: 'auto' }}>
                             <table className="admin-table">
                                 <thead>
                                     <tr>
                                         <th>Product</th>
                                         <th>Product Code</th>
+                                        <th>HSN/SAC</th>
                                         <th>Price</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {products.map(p => (
+                                    {filteredProducts.map(p => (
                                         <tr key={p._id}>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1349,6 +1385,13 @@ function AdminPage({ onLogout }) {
                                                 <span className="admin-badge" style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac' }}>
                                                     {p.productCode || '—'}
                                                 </span>
+                                            </td>
+                                            <td>
+                                                {p.hsnSac ? (
+                                                    <span className="admin-badge" style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe' }}>
+                                                        {p.hsnSac}
+                                                    </span>
+                                                ) : '—'}
                                             </td>
                                             <td>₹{p.price}</td>
                                             <td>
@@ -1364,6 +1407,7 @@ function AdminPage({ onLogout }) {
                         </div>
                     </div>
                 );
+            }
             case 'Offers':
                 return (
                     <div className="admin-form-panel fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
@@ -1583,46 +1627,53 @@ function AdminPage({ onLogout }) {
 
     return (
         <AdminLayout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout}>
-            <div className="admin-page-root fade-in">
-                {renderContent()}
-            </div>
-            <style>{`
-                .admin-page-root { animation: fadeIn 0.4s ease forwards; }
-                .fade-in { animation: fadeIn 0.4s ease forwards; }
-                .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
-                .fade-in-scale { animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-                
-                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-                @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                .spin { animation: spin 1s linear infinite; }
+            <>
+                <div className="admin-page-root fade-in">
+                    {renderContent()}
+                </div>
+                <InvoiceModal 
+                    isOpen={!!selectedOrderInvoice} 
+                    onClose={() => setSelectedOrderInvoice(null)} 
+                    orderData={selectedOrderInvoice} 
+                />
+                <style>{`
+                    .admin-page-root { animation: fadeIn 0.4s ease forwards; }
+                    .fade-in { animation: fadeIn 0.4s ease forwards; }
+                    .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
+                    .fade-in-scale { animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+                    
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                    @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+                    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                    .spin { animation: spin 1s linear infinite; }
 
-                .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
-                .stat-card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #edf2f7; cursor: pointer; transition: all 0.2s; }
-                .stat-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #d4af37; }
-                .stat-card h3 { font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
-                .stat-value { font-size: 32px; font-weight: 800; color: #0b3d2e; margin: 0; }
+                    .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
+                    .stat-card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #edf2f7; cursor: pointer; transition: all 0.2s; }
+                    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #d4af37; }
+                    .stat-card h3 { font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+                    .stat-value { font-size: 32px; font-weight: 800; color: #0b3d2e; margin: 0; }
 
-                .admin-card { background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; }
-                .admin-table { width: 100%; border-collapse: collapse; }
-                .admin-table th { padding: 12px 15px; text-align: left; border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-                .admin-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; vertical-align: middle; }
-                .admin-table tr { transition: background 0.2s; }
-                .admin-table tr:hover { background: #f8fafc; }
+                    .admin-card { background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; }
+                    .admin-table { width: 100%; border-collapse: collapse; }
+                    .admin-table th { padding: 12px 15px; text-align: left; border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .admin-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; vertical-align: middle; }
+                    .admin-table tr { transition: background 0.2s; }
+                    .admin-table tr:hover { background: #f8fafc; }
 
-                .admin-input { width: 100%; padding: 10px 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; transition: all 0.2s; box-sizing: border-box; font-family: inherit; }
-                .admin-input:focus { border-color: #d4af37; outline: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1); }
-                .admin-label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .admin-input { width: 100%; padding: 10px 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; transition: all 0.2s; box-sizing: border-box; font-family: inherit; }
+                    .admin-input:focus { border-color: #d4af37; outline: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1); }
+                    .admin-label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-                .admin-btn { padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; border: none; font-size: 14px; justify-content: center; }
-                .admin-btn-primary { background: #0b3d2e; color: #fff; }
-                .admin-btn-primary:hover { background: #082f23; transform: translateY(-1px); }
-                .admin-btn-danger { background: #fee2e2; color: #ef4444; }
-                .admin-btn-danger:hover { background: #fecaca; }
-                
-                .admin-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; display: inline-block; }
-            `}</style>
+                    .admin-btn { padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; border: none; font-size: 14px; justify-content: center; }
+                    .admin-btn-primary { background: #0b3d2e; color: #fff; }
+                    .admin-btn-primary:hover { background: #082f23; transform: translateY(-1px); }
+                    .admin-btn-danger { background: #fee2e2; color: #ef4444; }
+                    .admin-btn-danger:hover { background: #fecaca; }
+                    
+                    .admin-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; display: inline-block; }
+                `}</style>
+            </>
         </AdminLayout>
     );
 }

@@ -20,6 +20,7 @@ const ProductCard = ({ product }) => {
 
     // Prevent crashes if contexts are missing (e.g., in Admin preview)
     const productId = product?._id || product?.id;
+    const productSlugOrId = product?.slug || productId;
     const defaultVariant = product?.variants && product.variants.length > 0 ? product.variants[0] : null;
     const isWishlisted = wishlist ? wishlist.some(item => (item._id || item.id) === productId) : false;
     const inCart = isInCart ? isInCart(productId, defaultVariant?.label) : false;
@@ -90,8 +91,8 @@ const ProductCard = ({ product }) => {
     return (
         <div
             className={`venthulir-product-card fade-in-up ${isBestSeller ? 'electric-thunder' : ''}`}
-            onClick={() => appNavigate('product', { id: productId })}
-            onKeyDown={(e) => { if (e.key === 'Enter') appNavigate('product', { id: productId }) }}
+            onClick={() => appNavigate('product', { id: productSlugOrId })}
+            onKeyDown={(e) => { if (e.key === 'Enter') appNavigate('product', { id: productSlugOrId }) }}
             role="button"
             tabIndex="0"
             aria-label={`View product details for ${product.name}`}

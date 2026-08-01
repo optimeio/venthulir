@@ -1,0 +1,241 @@
+/* ==========================================
+   OrderTracking.css
+   Redesigned to exact user-provided template
+   ========================================== */
+
+.ot-container {
+    background-color: #FFFFFF;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #E7E5DD;
+    font-family: 'Inter', sans-serif;
+    color: #2F2F2F;
+    width: 100%;
+}
+
+/* Timeline Layout */
+.ot-timeline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    margin-bottom: 24px;
+    width: 100%;
+    padding: 0 20px;
+}
+
+/* The actual bar background */
+.ot-progress-line-bg {
+    position: absolute;
+    top: 28px;
+    left: 70px;
+    right: 70px;
+    height: 2px;
+    background: repeating-linear-gradient(to right, #E7E5DD 0, #E7E5DD 4px, transparent 4px, transparent 8px);
+    z-index: 1;
+}
+
+.ot-progress-line-active {
+    height: 100%;
+    background: #0A2E1F;
+    transition: width 1s ease-in-out;
+}
+
+/* Timeline Steps */
+.ot-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    text-align: center;
+}
+
+/* Icon Milestone Circle (56px) */
+.ot-circle-wrap {
+    position: relative;
+    width: 56px;
+    height: 56px;
+}
+
+.ot-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background: #FFFFFF;
+    border: 2px solid #E7E5DD;
+    color: #9CA3AF;
+}
+
+/* Badge for completed step */
+.ot-check-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: #0A2E1F;
+    color: #FFFFFF;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #FFFFFF;
+}
+
+/* Milestone States */
+.ot-step.completed .ot-circle {
+    background: #0A2E1F;
+    border-color: #0A2E1F;
+    color: #FFFFFF;
+}
+
+.ot-step.current .ot-circle {
+    border-color: #0A2E1F;
+    color: #0A2E1F;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 4px rgba(10, 46, 31, 0.05);
+}
+
+.ot-step.upcoming .ot-circle {
+    background: #FAF8F3;
+    border-color: #E7E5DD;
+    color: #9CA3AF;
+}
+
+/* Text Content for Step */
+.ot-step-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 12px;
+    color: #0A2E1F;
+}
+
+.ot-step.upcoming .ot-step-title {
+    color: #6B7280;
+}
+
+.ot-step-date {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 4px;
+}
+
+.ot-step-time {
+    font-size: 11px;
+    color: #9CA3AF;
+    margin-top: 2px;
+}
+
+/* Info Row Layout (Single Row with Borders) */
+.ot-info-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid #E7E5DD;
+    border-radius: 12px;
+    background: #FFFFFF;
+    padding: 16px 0;
+    margin-top: 24px;
+}
+
+.ot-info-col {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    border-right: 1px solid #E7E5DD;
+}
+
+.ot-info-col:last-child {
+    border-right: none;
+}
+
+.ot-card-icon {
+    color: #0A2E1F;
+    flex-shrink: 0;
+}
+
+.ot-card-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.ot-card-title {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.ot-card-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2F2F2F;
+    margin-top: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .ot-info-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px 0;
+    }
+    .ot-info-col:nth-child(2) {
+        border-right: none;
+    }
+    .ot-info-col:nth-child(3) {
+        border-top: 1px solid #E7E5DD;
+        padding-top: 16px;
+    }
+    .ot-info-col:nth-child(4) {
+        border-top: 1px solid #E7E5DD;
+        padding-top: 16px;
+        border-right: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .ot-timeline {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 32px;
+        padding-left: 20px;
+    }
+
+    .ot-progress-line-bg {
+        top: 28px;
+        left: 46px;
+        width: 2px;
+        height: calc(100% - 56px);
+        background: repeating-linear-gradient(to bottom, #E7E5DD 0, #E7E5DD 4px, transparent 4px, transparent 8px);
+    }
+
+    .ot-step {
+        flex-direction: row;
+        text-align: left;
+        gap: 20px;
+        width: 100%;
+    }
+
+    .ot-step-title {
+        margin-top: 0;
+    }
+
+    .ot-info-row {
+        grid-template-columns: 1fr;
+        gap: 16px 0;
+    }
+    
+    .ot-info-col {
+        border-right: none !important;
+        border-bottom: 1px solid #E7E5DD;
+        padding-bottom: 12px;
+    }
+    .ot-info-col:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+}

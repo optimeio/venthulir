@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAppNavigation } from '../context/NavigationContext';
-import { ShieldCheck, Truck, ChevronRight, ArrowLeft, CreditCard } from 'lucide-react';
+import { 
+    ShieldCheck, Truck, ArrowLeft, CreditCard, Wallet,
+    ChevronDown, ChevronUp, MapPin, Tag, CheckCircle2, Package, Search, Star
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 import './CheckoutPage.css';
 
-// Dynamically load the Razorpay checkout script (only once)
 const loadRazorpayScript = () =>
     new Promise((resolve) => {
         if (document.getElementById('razorpay-script')) {
@@ -31,7 +34,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
     const [variant, setVariant] = useState(null);
     const isCartMode = !viewParams.productId && !viewParams.id;
 
-    const [step, setStep] = useState(1);
+    const [isAddressEdit, setIsAddressEdit] = useState(false);
     const [shippingData, setShippingData] = useState({
         fullName: user?.name || '',
         address: user?.deliveryAddress?.address || '',
@@ -40,6 +43,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
         zipCode: user?.deliveryAddress?.zipCode || '',
         phone: user?.phone || ''
     });
+
     const [isProcessing, setIsProcessing] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -47,8 +51,16 @@ const CheckoutPage = ({ viewParams = {} }) => {
     const [orderError, setOrderError] = useState('');
     const [isVerifyingCoupon, setIsVerifyingCoupon] = useState(false);
     const [availableCoupons, setAvailableCoupons] = useState([]);
+    
     const [placedOrderId, setPlacedOrderId] = useState(null);
-    const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' | 'razorpay'
+    const [isSuccess, setIsSuccess] = useState(false);
+    
+    // Unified Payment Selection
+    const [paymentMethod, setPaymentMethod] = useState('cod'); 
+    
+    // UI States
+    const [summaryExpanded, setSummaryExpanded] = useState(true);
+    const [recommendedProducts, setRecommendedProducts] = useState([]);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -57,13 +69,18 @@ const CheckoutPage = ({ viewParams = {} }) => {
         }
         if (isCartMode) {
             if (cart.length === 0) { appNavigate('home'); return; }
-            fetchAvailableCoupons();
         } else {
             const productId = viewParams.productId || viewParams.id;
             const qty = parseInt(viewParams.quantity) || 1;
             const variantLabel = viewParams.variant;
             fetchProduct(productId, qty, variantLabel);
-            fetchAvailableCoupons();
+        }
+        fetchAvailableCoupons();
+        fetchRecommended();
+        
+        // Ensure address edit mode if no address saved
+        if (!user?.deliveryAddress?.address) {
+            setIsAddressEdit(true);
         }
     }, [isAuthenticated, viewParams]);
 
@@ -71,7 +88,16 @@ const CheckoutPage = ({ viewParams = {} }) => {
         try {
             const res = await api.get('/coupons/public');
             if (Array.isArray(res)) setAvailableCoupons(res);
-        } catch (err) { console.error('Failed to load coupons', err); }
+        } catch (err) {}
+    };
+
+    const fetchRecommended = async () => {
+        try {
+            const res = await api.get('/products');
+            if (res && Array.isArray(res.products)) {
+                setRecommendedProducts(res.products.slice(0, 5));
+            }
+        } catch(e){}
     };
 
     const fetchProduct = async (id, qty, variantLabel) => {
@@ -104,19 +130,18 @@ const CheckoutPage = ({ viewParams = {} }) => {
                     setVariant(found.variants[0]);
                 }
             }
-        } catch (err) { console.error(err); }
+        } catch (err) {}
     };
 
-    const handleShippingSubmit = async (e) => {
-        e.preventDefault();
+    const handleSaveAddress = async () => {
         try {
             const res = await api.put('/auth/address', {
                 address: shippingData.address, city: shippingData.city,
                 state: shippingData.state, zipCode: shippingData.zipCode
             });
             if (res.deliveryAddress) updateUser({ ...user, deliveryAddress: res.deliveryAddress });
-        } catch (err) { console.error('Address save failed quietly', err); }
-        setStep(2);
+            setIsAddressEdit(false);
+        } catch (err) { console.error('Address save failed', err); setIsAddressEdit(false); }
     };
 
     const getOrderItems = () => {
@@ -126,10 +151,11 @@ const CheckoutPage = ({ viewParams = {} }) => {
                 name: item.name,
                 variant: item.selectedVariant || null,
                 quantity: item.quantity,
-                price: item.price
+                price: item.price,
+                hsnSac: item.hsnSac || ''
             }));
         }
-        return [{ product: product._id || product.id, name: product.name, variant: variant?.label, quantity, price: variant ? variant.price : product.price }];
+        return [{ product: product._id || product.id, name: product.name, variant: variant?.label, quantity, price: variant ? variant.price : product.price, hsnSac: product.hsnSac || '' }];
     };
 
     const subtotal = isCartMode ? getTotalPrice() : (variant ? variant.price : product?.price || 0) * quantity;
@@ -137,7 +163,7 @@ const CheckoutPage = ({ viewParams = {} }) => {
     const discountAmount = appliedCoupon ? Math.round((subtotal * appliedCoupon.discountPercentage) / 100) : 0;
     const total = subtotal - discountAmount + shipping;
 
-    // ── COD FLOW (unchanged) ─────────────────────────────────────────────────
+    // ── COD FLOW ──
     const handlePlaceCODOrder = async () => {
         setIsProcessing(true);
         setOrderError('');
@@ -161,66 +187,44 @@ const CheckoutPage = ({ viewParams = {} }) => {
             const res = await api.post('/coupons/checkout', orderData);
             setPlacedOrderId(res.order?._id || null);
             if (isCartMode) clearCart();
-            setStep(3);
+            setIsSuccess(true);
         } catch (err) {
-            const backendMsg = err?.response?.data?.error || err?.message || '';
-            setOrderError(backendMsg || 'Order failed. Please try again.');
+            setOrderError(err?.response?.data?.error || err?.message || 'Order failed. Please try again.');
         } finally {
             setIsProcessing(false);
         }
     };
 
-    // ── RAZORPAY FLOW ────────────────────────────────────────────────────────
+    // ── RAZORPAY FLOW ──
     const handleRazorpayPayment = async () => {
         setIsProcessing(true);
         setOrderError('');
-
         try {
-            // 1. Load Razorpay script
             const scriptLoaded = await loadRazorpayScript();
             if (!scriptLoaded) {
-                setOrderError('Failed to load payment gateway. Please check your connection.');
+                setOrderError('Failed to load payment gateway. Please check your connection or disable your Adblocker/Brave Shields.');
                 setIsProcessing(false);
                 return;
             }
-
-            // 2. Create Razorpay order on backend
             const rzpOrderData = await api.post('/payment/create-order', { amount: total });
-
-            // 3. Configure and open the Razorpay modal
             const options = {
                 key: rzpOrderData.key,
                 amount: rzpOrderData.amount,
                 currency: rzpOrderData.currency,
-                name: 'Venthulir Royal Reserves',
+                name: 'Venthulir Organic',
                 description: 'Secure Payment',
                 image: 'https://i.ibb.co/rGZwVGYP/organic.png',
                 order_id: rzpOrderData.id,
-                prefill: {
-                    name: shippingData.fullName,
-                    email: user.email,
-                    contact: shippingData.phone,
-                },
-                notes: {
-                    address: `${shippingData.address}, ${shippingData.city}`,
-                },
-                theme: {
-                    color: '#0b3d2e',
-                },
-                modal: {
-                    ondismiss: () => {
-                        setIsProcessing(false);
-                        setOrderError('Payment cancelled. You can try again.');
-                    },
-                },
+                prefill: { name: shippingData.fullName, email: user.email, contact: shippingData.phone },
+                notes: { address: `${shippingData.address}, ${shippingData.city}` },
+                theme: { color: '#0A2E1F' },
+                modal: { ondismiss: () => { setIsProcessing(false); setOrderError('Payment cancelled.'); } },
                 handler: async (response) => {
-                    // 4. Payment successful in modal — verify server-side
                     try {
                         const verifyPayload = {
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_signature: response.razorpay_signature,
-                            // Order details
                             customerName: shippingData.fullName,
                             customerEmail: user.email,
                             phone: shippingData.phone,
@@ -236,41 +240,55 @@ const CheckoutPage = ({ viewParams = {} }) => {
                             totalAmount: total,
                             couponCode: appliedCoupon?.code || null,
                         };
-
                         const res = await api.post('/payment/verify', verifyPayload);
                         setPlacedOrderId(res.order?._id || null);
                         if (isCartMode) clearCart();
-                        setStep(3);
+                        setIsSuccess(true);
                     } catch (verifyErr) {
-                        const msg = verifyErr?.message || 'Payment verification failed. Contact support.';
-                        setOrderError(msg);
-                    } finally {
-                        setIsProcessing(false);
-                    }
+                        setOrderError(verifyErr?.message || 'Payment verification failed.');
+                    } finally { setIsProcessing(false); }
                 },
             };
-
             const rzp = new window.Razorpay(options);
             rzp.on('payment.failed', (response) => {
-                setOrderError(`Payment failed: ${response.error.description || 'Unknown error'}. Please try again.`);
+                setOrderError(`Payment failed: ${response.error.description}.`);
                 setIsProcessing(false);
             });
             rzp.open();
-
         } catch (err) {
-            const msg = err?.message || 'Could not initiate payment. Please try again.';
-            setOrderError(msg);
+            setOrderError(err?.message || 'Could not initiate payment.');
             setIsProcessing(false);
         }
     };
 
-    // ── DISPATCH based on selected payment method ─────────────────────────────
-    const handlePlaceOrder = () => {
-        if (paymentMethod === 'razorpay') {
-            handleRazorpayPayment();
-        } else {
-            handlePlaceCODOrder();
+    const handlePlaceOrder = async () => {
+        if (isAddressEdit) {
+            if (!shippingData.fullName || !shippingData.address || !shippingData.city || !shippingData.phone) {
+                alert("Please fill in all delivery address details.");
+                return;
+            }
+            setIsProcessing(true);
+            try {
+                const res = await api.put('/auth/address', {
+                    address: shippingData.address, city: shippingData.city,
+                    state: shippingData.state, zipCode: shippingData.zipCode
+                });
+                if (res.deliveryAddress) updateUser({ ...user, deliveryAddress: res.deliveryAddress });
+                setIsAddressEdit(false);
+            } catch (err) { 
+                console.error('Address save failed', err); 
+            } finally {
+                setIsProcessing(false);
+            }
         }
+
+        // Re-check shipping data after potential save
+        if (!shippingData.address || !shippingData.city || !shippingData.phone) {
+            alert("Please save a valid delivery address first.");
+            return;
+        }
+        if (paymentMethod === 'cod') handlePlaceCODOrder();
+        else handleRazorpayPayment();
     };
 
     const handleApplyCoupon = async () => {
@@ -290,188 +308,227 @@ const CheckoutPage = ({ viewParams = {} }) => {
         } finally { setIsVerifyingCoupon(false); }
     };
 
-    const handleRemoveCoupon = () => { setAppliedCoupon(null); setCouponError(''); };
-
-    if (!isCartMode && !product) return <div className="checkout-loading">Preparing your harvest...</div>;
-    if (isCartMode && cart.length === 0 && step !== 3) return <div className="checkout-loading">Your cart is empty...</div>;
-
-    // ── SUCCESS SCREEN ───────────────────────────────────────────────────────
-    if (step === 3) {
-        return (
-            <div className="order-success-container">
-                <div className="success-content">
-                    <div className="success-icon-wrap">
-                        <ShieldCheck size={64} color="#0b3d2e" />
-                    </div>
-                    <h1>Order Placed Successfully!</h1>
-                    <p>Thank you, {user?.name}. Your royal harvest is being prepared with care.</p>
-                    <div className="order-summary-box">
-                        {placedOrderId && <p style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#0b3d2e' }}>Order ID: #{placedOrderId}</p>}
-                        <p>📧 A confirmation email has been sent to <strong>{user?.email}</strong></p>
-                        <p>🚚 Estimated Delivery: 3–5 Business Days</p>
-                        <p>💰 Payment: {paymentMethod === 'razorpay' ? 'Paid Online (Razorpay)' : 'Cash on Delivery'}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '20px' }}>
-                        <button className="primary-checkout-btn" onClick={() => appNavigate('profile')}>View My Orders</button>
-                        <button className="primary-checkout-btn" style={{ background: '#f8fafc', color: '#0b3d2e', border: '2px solid #0b3d2e' }} onClick={() => appNavigate('home')}>Continue Shopping</button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    if (!isCartMode && !product) return <div className="checkout-luxury-root" style={{padding: '50px', textAlign: 'center'}}>Preparing your harvest...</div>;
+    if (isCartMode && cart.length === 0 && !isSuccess) return <div className="checkout-luxury-root" style={{padding: '50px', textAlign: 'center'}}>Your cart is empty...</div>;
 
     const summaryItems = isCartMode ? cart : (product ? [{ ...product, price: variant ? variant.price : product.price, selectedVariant: variant?.label, quantity }] : []);
 
+    // ── SUCCESS SCREEN ──
+    if (isSuccess) {
+        return (
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} className="co-success-view">
+                <div className="co-success-icon"><ShieldCheck size={40} /></div>
+                <h1>Order Confirmed</h1>
+                <p style={{color: '#6B7280', marginBottom: '24px'}}>Thank you, {user?.name}. Your order has been securely placed.</p>
+                {placedOrderId && <p style={{fontFamily:'monospace', fontWeight: 700, color: '#0A2E1F', background: '#f1f5f9', padding: '10px 20px', borderRadius: '10px', marginBottom: '32px'}}>Order ID: #{placedOrderId.slice(-8).toUpperCase()}</p>}
+                <div style={{display:'flex', gap: '16px'}}>
+                    <button className="co-btn-secondary" onClick={() => appNavigate('profile', {section: 'orders'})}>View Orders</button>
+                    <button className="co-btn-primary" onClick={() => appNavigate('home')}>Continue Shopping</button>
+                </div>
+            </motion.div>
+        );
+    }
+
     return (
-        <div className="checkout-page-root">
-            <header className="checkout-header">
-                <div className="checkout-header-inner">
-                    <button className="back-link" onClick={() => appNavigate(isCartMode ? 'cart' : 'home')}>
+        <div className="checkout-luxury-root">
+            {/* Header */}
+            <header className="co-header">
+                <div className="co-announcement">
+                    🌿 100% Organic Products • 🚚 Free Shipping Above ₹899
+                </div>
+                <div className="co-header-inner">
+                    <button className="co-back-btn" onClick={() => appNavigate(isCartMode ? 'cart' : 'home')}>
                         <ArrowLeft size={18} /> Back
                     </button>
-                    <div className="checkout-logo" onClick={() => appNavigate('home')}>VENTHULIR</div>
+                    <div className="co-logo" onClick={() => appNavigate('home')}>VENTHULIR</div>
+                    <div className="co-secure-badge"><ShieldCheck size={16} /> 100% Secure</div>
                 </div>
             </header>
 
-            <main className="checkout-main">
-                <div className="checkout-grid">
-                    <div className="checkout-form-container">
-                        <div className="checkout-stepper">
-                            <div className={`step-item ${step >= 1 ? 'active' : ''}`}>Shipping</div>
-                            <div className="step-divider"></div>
-                            <div className={`step-item ${step >= 2 ? 'active' : ''}`}>Payment</div>
-                        </div>
-
-                        {step === 1 ? (
-                            <div className="shipping-section animate-fade-in">
-                                <h2>Shipping Information</h2>
-                                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Your address will be saved for future orders.</p>
-                                <form className="checkout-form" onSubmit={handleShippingSubmit}>
-                                    <div className="input-group"><label>Full Name</label><input required type="text" value={shippingData.fullName} onChange={e => setShippingData({ ...shippingData, fullName: e.target.value })} /></div>
-                                    <div className="input-group"><label>Street Address</label><input required type="text" value={shippingData.address} onChange={e => setShippingData({ ...shippingData, address: e.target.value })} /></div>
-                                    <div className="input-row">
-                                        <div className="input-group"><label>City</label><input required type="text" value={shippingData.city} onChange={e => setShippingData({ ...shippingData, city: e.target.value })} /></div>
-                                        <div className="input-group"><label>State</label><input required type="text" value={shippingData.state} onChange={e => setShippingData({ ...shippingData, state: e.target.value })} /></div>
-                                    </div>
-                                    <div className="input-row">
-                                        <div className="input-group"><label>ZIP Code</label><input required type="text" value={shippingData.zipCode} onChange={e => setShippingData({ ...shippingData, zipCode: e.target.value })} /></div>
-                                        <div className="input-group"><label>Phone Number</label><input required type="tel" value={shippingData.phone} onChange={e => setShippingData({ ...shippingData, phone: e.target.value })} /></div>
-                                    </div>
-                                    <button type="submit" className="primary-checkout-btn">Continue to Payment <ChevronRight size={18} /></button>
-                                </form>
-                            </div>
-                        ) : (
-                            <div className="payment-section animate-fade-in">
-                                <h2>Payment Method</h2>
-                                <div className="payment-options">
-                                    {/* COD Option */}
-                                    <div
-                                        className={`payment-card ${paymentMethod === 'cod' ? 'selected' : ''}`}
-                                        onClick={() => setPaymentMethod('cod')}
-                                    >
-                                        <div className="payment-radio">
-                                            <div className={`radio-dot ${paymentMethod === 'cod' ? 'active' : ''}`} />
-                                        </div>
-                                        <Truck size={24} />
-                                        <div className="payment-card-info">
-                                            <span className="payment-card-title">Cash on Delivery</span>
-                                            <span className="payment-card-desc">Pay with cash upon delivery. No advance required.</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Razorpay Option */}
-                                    <div
-                                        className={`payment-card ${paymentMethod === 'razorpay' ? 'selected razorpay-selected' : ''}`}
-                                        onClick={() => setPaymentMethod('razorpay')}
-                                    >
-                                        <div className="payment-radio">
-                                            <div className={`radio-dot ${paymentMethod === 'razorpay' ? 'active' : ''}`} />
-                                        </div>
-                                        <CreditCard size={24} />
-                                        <div className="payment-card-info">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <span className="payment-card-title">Pay Online</span>
-                                                <span className="razorpay-badge">Razorpay</span>
-                                            </div>
-                                            <span className="payment-card-desc">UPI · Cards · NetBanking · Wallets — 100% Secure</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {orderError && (
-                                    <div className="animate-fade-in" style={{ color: '#B12704', background: '#fcf4f4', padding: '16px 20px', borderRadius: '12px', border: '1px solid #f5c6c6', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <span style={{ fontSize: '18px' }}>⚠️</span> {orderError}
-                                    </div>
-                                )}
-
-                                <div className="order-actions">
-                                    <button className="secondary-checkout-btn" onClick={() => setStep(1)}>Back to Shipping</button>
-                                    <button
-                                        className={`primary-checkout-btn ${paymentMethod === 'razorpay' ? 'razorpay-btn' : ''}`}
-                                        onClick={handlePlaceOrder}
-                                        disabled={isProcessing}
-                                        style={{ marginTop: 0 }}
-                                    >
-                                        {isProcessing
-                                            ? (paymentMethod === 'razorpay' ? 'Opening Payment...' : 'Placing Order...')
-                                            : paymentMethod === 'razorpay'
-                                                ? `Pay ₹${total.toLocaleString()} Now`
-                                                : `Confirm Order — ₹${total.toLocaleString()}`
-                                        }
-                                    </button>
-                                </div>
-                            </div>
+            <main className="co-main">
+                {/* 1. Address Section */}
+                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="co-card">
+                    <div className="co-card-header">
+                        <h2 className="co-card-title"><MapPin size={24} /> Delivery Address</h2>
+                        {!isAddressEdit && (
+                            <button className="co-btn-secondary" onClick={() => setIsAddressEdit(true)}>Edit Address</button>
                         )}
                     </div>
-
-                    <div className="checkout-summary-container">
-                        <div className="summary-card">
-                            <h3>Order Summary ({summaryItems.length} item{summaryItems.length !== 1 ? 's' : ''})</h3>
-                            {summaryItems.map((item, i) => (
-                                <div key={i} className="summary-item product-preview" style={{ marginBottom: '12px' }}>
-                                    <img src={item.imageUrl || item.images?.[0]} alt={item.name} />
-                                    <div className="item-details">
-                                        <h4>{item.name}</h4>
-                                        <p>{item.selectedVariant || variant?.label || 'Standard'}</p>
-                                        <p>Qty: {item.quantity}</p>
-                                    </div>
-                                    <div className="item-price">₹{(item.price * item.quantity).toLocaleString()}</div>
+                    
+                    <AnimatePresence mode="wait">
+                        {isAddressEdit ? (
+                            <motion.div key="edit" initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}}>
+                                <div className="co-form-grid">
+                                    <div className="co-input-group"><label>Full Name</label><input className="co-input" type="text" value={shippingData.fullName} onChange={e => setShippingData({...shippingData, fullName: e.target.value})} /></div>
+                                    <div className="co-input-group"><label>Phone Number</label><input className="co-input" type="tel" value={shippingData.phone} onChange={e => setShippingData({...shippingData, phone: e.target.value})} /></div>
                                 </div>
-                            ))}
+                                <div className="co-input-group" style={{marginTop:'16px'}}><label>Street Address</label><input className="co-input" type="text" value={shippingData.address} onChange={e => setShippingData({...shippingData, address: e.target.value})} /></div>
+                                <div className="co-form-grid">
+                                    <div className="co-input-group"><label>City</label><input className="co-input" type="text" value={shippingData.city} onChange={e => setShippingData({...shippingData, city: e.target.value})} /></div>
+                                    <div className="co-input-group"><label>State</label><input className="co-input" type="text" value={shippingData.state} onChange={e => setShippingData({...shippingData, state: e.target.value})} /></div>
+                                    <div className="co-input-group"><label>ZIP Code</label><input className="co-input" type="text" value={shippingData.zipCode} onChange={e => setShippingData({...shippingData, zipCode: e.target.value})} /></div>
+                                </div>
+                                <div style={{marginTop: '24px'}}>
+                                    <button className="co-btn-primary" onClick={handleSaveAddress} style={{padding: '12px 24px', fontSize: '14px'}}>Save Address</button>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div key="view" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="co-address-box">
+                                <h4>{shippingData.fullName}</h4>
+                                <p>{shippingData.phone} • {user.email}</p>
+                                <p>{shippingData.address}, {shippingData.city}, {shippingData.state} - {shippingData.zipCode}</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
 
-                            <div className="summary-divider"></div>
-                            <div className="summary-row"><span>Subtotal</span><span>₹{subtotal.toLocaleString()}</span></div>
-                            {appliedCoupon && <div className="summary-row" style={{ color: '#22c55e' }}><span>Discount ({appliedCoupon.discountPercentage}%)</span><span>- ₹{discountAmount.toLocaleString()}</span></div>}
-                            <div className="summary-row"><span>Shipping</span><span>{shipping === 0 ? 'FREE' : `₹${shipping}`}</span></div>
-                            <div className="summary-row total"><span>Total</span><span>₹{total.toLocaleString()}</span></div>
-
-                            <div className="coupon-entry-section" style={{ marginTop: '20px', borderTop: '1px dashed #e2e8f0', paddingTop: '20px' }}>
-                                {appliedCoupon ? (
-                                    <div style={{ background: '#dcfce7', padding: '10px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ color: '#166534', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={16} /> {appliedCoupon.code} Applied</div>
-                                        <button onClick={handleRemoveCoupon} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>Remove</button>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <select value={couponInput} onChange={e => setCouponInput(e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff', fontSize: '14px' }}>
-                                                <option value="">{availableCoupons.length > 0 ? '-- Select a Coupon --' : 'No Coupons Available'}</option>
-                                                {availableCoupons.map(c => <option key={c._id} value={c.couponCode}>{c.couponCode} ({c.discountPercentage}% OFF)</option>)}
-                                            </select>
-                                            <button onClick={handleApplyCoupon} disabled={isVerifyingCoupon || !couponInput.trim()} style={{ padding: '10px 20px', background: '#0b3d2e', color: '#d4af37', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                                {isVerifyingCoupon ? '...' : 'Apply'}
-                                            </button>
+                {/* 2. Order Summary */}
+                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.1}} className="co-card">
+                    <button className="co-summary-toggle" onClick={() => setSummaryExpanded(!summaryExpanded)}>
+                        <h2 className="co-card-title"><Package size={24} /> Order Summary ({summaryItems.length} items)</h2>
+                        {summaryExpanded ? <ChevronUp size={24} color="#0A2E1F" /> : <ChevronDown size={24} color="#0A2E1F" />}
+                    </button>
+                    
+                    <AnimatePresence>
+                        {summaryExpanded && (
+                            <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}} style={{overflow: 'hidden'}}>
+                                <div style={{marginTop: '24px'}}>
+                                    {summaryItems.map((item, i) => (
+                                        <div key={i} className="co-summary-item">
+                                            <img src={item.image || item.imageUrl || item.images?.[0] || 'https://images.unsplash.com/photo-1611078589410-63259972c72b?auto=format&fit=crop&q=80&w=100'} alt={item.name} className="co-summary-img"/>
+                                            <div className="co-summary-details">
+                                                <h5>{item.name}</h5>
+                                                {item.selectedVariant && <p>{item.selectedVariant}</p>}
+                                                <p>Qty: {item.quantity}</p>
+                                            </div>
+                                            <div className="co-summary-price">₹{(item.price * item.quantity).toLocaleString()}</div>
                                         </div>
-                                        {couponError && <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: 'bold' }}>{couponError}</span>}
+                                    ))}
+                                    
+                                    <div style={{marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #E7E5DD'}}>
+                                        <div className="co-breakdown-row"><span>Subtotal</span><span>₹{subtotal.toLocaleString()}</span></div>
+                                        {appliedCoupon && <div className="co-breakdown-row" style={{color:'#16A34A'}}><span>Discount ({appliedCoupon.discountPercentage}%)</span><span>- ₹{discountAmount.toLocaleString()}</span></div>}
+                                        <div className="co-breakdown-row"><span>Shipping</span><span>{shipping === 0 ? 'FREE' : `₹${shipping}`}</span></div>
+                                        <div className="co-breakdown-total"><span>Grand Total</span><span>₹{total.toLocaleString()}</span></div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
 
-                            <div className="guarantee-box"><ShieldCheck size={18} /><span>100% Satisfaction Guaranteed</span></div>
+                {/* 3. Coupons */}
+                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.2}} className="co-card">
+                    <h2 className="co-card-title" style={{marginBottom:'16px'}}><Tag size={24} /> Apply Coupon</h2>
+                    {appliedCoupon ? (
+                        <div style={{background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                            <strong style={{color: '#16a34a', display:'flex', gap:'8px', alignItems:'center'}}><CheckCircle2 size={18}/> {appliedCoupon.code} Applied Successfully!</strong>
+                            <button onClick={() => setAppliedCoupon(null)} style={{background: 'none', border:'none', color:'#dc2626', fontWeight: 700, cursor:'pointer'}}>Remove</button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="co-coupon-flex">
+                                <input type="text" className="co-coupon-input" placeholder="Enter coupon code" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} />
+                                <button className="co-btn-secondary" onClick={handleApplyCoupon} disabled={!couponInput || isVerifyingCoupon} style={{background:'#0A2E1F', color:'#fff'}}>
+                                    {isVerifyingCoupon ? 'Verifying...' : 'Apply'}
+                                </button>
+                            </div>
+                            {couponError && <p style={{color: '#dc2626', fontSize: '13px', marginTop: '8px', fontWeight: 600}}>{couponError}</p>}
+                            
+                            {availableCoupons.length > 0 && (
+                                <div style={{marginTop:'16px', display:'flex', gap:'10px', flexWrap:'wrap'}}>
+                                    {availableCoupons.map(c => (
+                                        <div key={c._id} onClick={() => setCouponInput(c.couponCode)} style={{cursor:'pointer', background:'#f8fafc', padding:'8px 12px', borderRadius:'8px', fontSize:'12px', fontWeight:700, border:'1px dashed #cbd5e1'}}>
+                                            {c.couponCode} <span style={{color:'#16a34a'}}>(-{c.discountPercentage}%)</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </motion.div>
+
+                {/* 4. Payment Method */}
+                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.3}} className="co-card">
+                    <h2 className="co-card-title"><CreditCard size={24} /> Payment Method</h2>
+                    
+                    <div className="co-payment-grid">
+                        <div className={`co-payment-card ${paymentMethod === 'cod' ? 'active' : ''}`} onClick={() => setPaymentMethod('cod')}>
+                            <div className="co-payment-icon"><Truck size={20} /></div>
+                            <div>
+                                <h5>Cash on Delivery</h5>
+                                <p>Pay at doorstep</p>
+                            </div>
+                        </div>
+                        
+                        <div className={`co-payment-card ${paymentMethod === 'razorpay' ? 'active' : ''}`} onClick={() => setPaymentMethod('razorpay')}>
+                            <div className="co-payment-icon"><Wallet size={20} /></div>
+                            <div>
+                                <h5>Pay Online Securely</h5>
+                                <p>UPI, Cards, NetBanking</p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                    
+                    {orderError && (
+                        <div style={{marginTop: '20px', padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#b91c1c', fontWeight: 600, fontSize: '14px', display:'flex', gap:'8px'}}>
+                            <span>⚠️</span> {orderError}
+                        </div>
+                    )}
+                </motion.div>
+
+                {/* 5. Order Tracker Info */}
+                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.4}} className="co-tracker-grid">
+                    <div className="co-tracker-card">
+                        <Truck size={24} color="#0A2E1F" />
+                        <span>Est. Delivery</span>
+                        <p>3-5 Business Days</p>
+                    </div>
+                    <div className="co-tracker-card">
+                        <ShieldCheck size={24} color="#0A2E1F" />
+                        <span>100% Secure</span>
+                        <p>Encrypted Payments</p>
+                    </div>
+                    <div className="co-tracker-card">
+                        <CheckCircle2 size={24} color="#0A2E1F" />
+                        <span>Authentic</span>
+                        <p>Organic Certified</p>
+                    </div>
+                </motion.div>
+
+                {/* 6. Recommended Products */}
+                {recommendedProducts.length > 0 && (
+                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.5}} style={{marginTop: '20px'}}>
+                        <h2 className="co-card-title" style={{marginBottom: '20px'}}>Recommended For You</h2>
+                        <div className="co-carousel">
+                            {recommendedProducts.map(prod => (
+                                <div key={prod._id} className="co-product-card" onClick={() => appNavigate('product', { id: prod.slug || prod._id || prod.id })}>
+                                    <img src={prod.imageUrl || prod.images?.[0] || 'https://images.unsplash.com/photo-1611078589410-63259972c72b?auto=format&fit=crop&q=80&w=200'} className="co-product-img" alt={prod.name} />
+                                    <h5>{prod.name}</h5>
+                                    <div style={{display:'flex', gap:'4px', alignItems:'center', margin:'4px 0'}}>
+                                        <Star size={12} fill="#eab308" color="#eab308"/>
+                                        <span style={{fontSize:'12px', color:'#64748b'}}>4.9</span>
+                                    </div>
+                                    <p>₹{prod.price || prod.offerPrice || 0}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
             </main>
+
+            {/* Sticky Bottom Bar */}
+            <div className="co-bottom-bar">
+                <div className="co-bottom-inner">
+                    <div className="co-bottom-total">
+                        <span>Grand Total</span>
+                        <strong>₹{total.toLocaleString()}</strong>
+                    </div>
+                    <button className="co-btn-primary" onClick={handlePlaceOrder} disabled={isProcessing}>
+                        {isProcessing ? 'Processing...' : (paymentMethod === 'razorpay' ? `Pay Securely` : `Place COD Order`)}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
