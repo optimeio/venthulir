@@ -3,7 +3,9 @@
    Matching Exact User Image Layout
    ========================================== */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -61,6 +63,13 @@
 
 .cp-logo-mark {
     font-size: 22px;
+}
+
+.cp-logo-img {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .cp-logo-text {
@@ -502,8 +511,15 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Header */
@@ -550,10 +566,29 @@
     letter-spacing: 0.5px;
 }
 
-.cp-status-processing { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-.cp-status-shipped { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.cp-status-delivered { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.cp-status-cancelled { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.cp-status-processing {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.cp-status-shipped {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.cp-status-delivered {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.cp-status-cancelled {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
 
 /* Items */
 .cp-premium-order-items {
@@ -658,8 +693,9 @@
 .cp-premium-tracking-wrapper {
     padding: 0 24px 24px;
 }
+
 /* Ensure the tailwind classes in OrderTracking fit the card */
-.cp-premium-tracking-wrapper > div {
+.cp-premium-tracking-wrapper>div {
     box-shadow: none !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 16px !important;
@@ -829,7 +865,7 @@
         justify-content: flex-start;
         margin-top: 8px;
     }
-    
+
     .cp-premium-order-footer {
         flex-direction: column;
         gap: 12px;
@@ -839,7 +875,7 @@
         width: 100%;
         flex-direction: column;
     }
-    
+
     .cp-premium-footer-actions button {
         width: 100%;
     }

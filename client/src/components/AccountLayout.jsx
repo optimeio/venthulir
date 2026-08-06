@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { User, Package, Heart, ShoppingCart, Gift, Bell, LifeBuoy, Settings, LogOut, ArrowLeft, Lock, LogIn, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/organic.png';
 import '../pages/CustomerPage.css';
 
 const sidebarItems = [
@@ -53,8 +54,7 @@ const AccountLayout = () => {
             <div className="cp-dashboard-root">
                 <header className="cp-dashboard-top-bar">
                     <div className="cp-top-bar-left" onClick={() => navigate('/')}>
-                        <span className="cp-logo-mark">🌿</span>
-                        <span className="cp-logo-text">MY ACCOUNT</span>
+                        <img src={logo} alt="Venthulir Logo" className="cp-logo-img" />
                     </div>
                     <div className="cp-top-bar-main">
                         <h1 className="cp-top-bar-title">Account Access</h1>
@@ -88,8 +88,7 @@ const AccountLayout = () => {
             {/* Edge-to-Edge Top Bar Header */}
             <header className="cp-dashboard-top-bar">
                 <div className="cp-top-bar-left" onClick={() => { navigate('/'); setIsMobileOpen(false); }} title="Venthulir Home">
-                    <span className="cp-logo-mark">🌿</span>
-                    <span className="cp-logo-text">MY ACCOUNT</span>
+                    <img src={logo} alt="Venthulir Logo" className="cp-logo-img" />
                 </div>
                 <div className="cp-top-bar-main">
                     <button 
